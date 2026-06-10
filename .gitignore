@@ -61,6 +61,13 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# Environment / secrets
+.env
+.env.local
+
+# Generated dashboard output
+dashboard.html
+
 # Flask stuff:
 instance/
 .webassets-cache

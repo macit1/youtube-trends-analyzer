@@ -16,37 +16,73 @@ from .report_generator import build_context
 
 app = Flask(__name__)
 
-# Friendly labels for the control-panel category groups.
-CATEGORY_LABELS = {
-    "TOURNAMENT": "🏆 Tournament Keywords",
-    "PLAYER_TRANSFER": "🔁 Player & Transfer Keywords",
-    "ALGORITHM_HOOKS": "🎬 Algorithm Hook Keywords",
-}
-
-
-def _default_categories() -> dict[str, dict]:
-    """Category context for the control panel, seeded from config defaults."""
-    return {
-        key: {"label": CATEGORY_LABELS.get(key, key), "keywords": list(keywords)}
-        for key, keywords in config.KEYWORD_CATEGORIES.items()
-    }
-
 
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html", categories=_default_categories())
+    return render_template(
+        "index.html",
+        keyword_templates=config.KEYWORD_TEMPLATES,
+        search_modes=config.SEARCH_MODES,
+        default_search_mode=config.DEFAULT_SEARCH_MODE,
+        api_active=config.get_api_key() is not None,
+        date_ranges=config.DATE_RANGES,
+        default_date_range=config.DEFAULT_DATE_RANGE,
+        default_min_likes=config.MIN_LIKES,
+        default_min_views=config.MIN_VIEWS,
+        default_per_keyword=config.get_results_per_keyword(),
+    )
 
 
 @app.route("/run", methods=["POST"])
 def run():
-    # Each category textarea posts newline-separated keywords as kw_<CATEGORY>.
-    keywords: list[str] = []
-    for key in config.KEYWORD_CATEGORIES:
-        raw = request.form.get(f"kw_{key}", "")
-        keywords.extend(line.strip() for line in raw.splitlines() if line.strip())
+    # The control panel posts the final (edited) keyword list as newline- or
+    # comma-separated text in a single `keywords` field.
+    raw = request.form.get("keywords", "")
+    keywords = [
+        part.strip()
+        for line in raw.splitlines()
+        for part in line.split(",")
+        if part.strip()
+    ]
 
-    df = AnalyzerEngine(keywords=keywords).run()
-    return render_template("dashboard.html", standalone=False, **build_context(df))
+    # Upload-date window: one of config.DATE_RANGES keys ("0"/"1"/"7"/"30").
+    date_raw = request.form.get("date_range", "")
+    try:
+        date_range_days = int(date_raw) if date_raw else None
+    except ValueError:
+        date_range_days = None
+
+    # Primary filters: minimum likes / views (control panel inputs, default to config).
+    def _to_int(name: str) -> int | None:
+        raw = request.form.get(name, "")
+        try:
+            return int(raw) if raw.strip() else None
+        except ValueError:
+            return None
+
+    min_likes = _to_int("min_likes")
+    min_views = _to_int("min_views")
+    results_per_keyword = _to_int("per_keyword")
+
+    # Search mode toggle: "shorts" or "all" (engine falls back to default on junk).
+    search_mode = request.form.get("search_mode", config.DEFAULT_SEARCH_MODE)
+
+    engine = AnalyzerEngine(
+        keywords=keywords,
+        date_range_days=date_range_days,
+        min_likes=min_likes,
+        min_views=min_views,
+        results_per_keyword=results_per_keyword,
+        search_mode=search_mode,
+    )
+    df = engine.run()
+    return render_template(
+        "dashboard.html",
+        standalone=False,
+        stats=engine.stats,
+        provider=engine.provider,
+        **build_context(df),
+    )
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ShortsCup AI — Control Panel</title>
+  <title>TrendLens — YouTube Control Panel</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @keyframes pulseGlow {
@@ -21,46 +21,223 @@
     <div class="h-16 w-16 animate-spin rounded-full border-4 border-slate-600"
          style="border-top-color:#ef4444;"></div>
     <p class="text-lg font-semibold" style="color:#f8fafc;">
-      Scraping &amp; Analyzing Live YouTube Shorts... Please Wait.
+      Scraping &amp; Analyzing Live YouTube Videos... Please Wait.
     </p>
     <p class="text-sm" style="color:#94a3b8;">This can take a few minutes — keep this tab open.</p>
   </div>
 
-  <main class="mx-auto max-w-4xl px-4 py-10">
+  <main class="mx-auto max-w-3xl px-4 py-10">
     <header class="mb-10 text-center">
-      <h1 class="text-4xl font-extrabold" style="color:#f8fafc;">⚽ ShortsCup AI</h1>
-      <p class="mt-2" style="color:#94a3b8;">Keyword Control Panel — configure your scan and launch the engine.</p>
+      <h1 class="text-4xl font-extrabold" style="color:#f8fafc;">🔍 TrendLens</h1>
+      <p class="mt-2" style="color:#94a3b8;">YouTube trend tracker — enter any topic, we generate the keywords, you tune them, then launch.</p>
+      {% if api_active %}
+      <span class="mt-3 inline-block rounded-full px-3 py-1 text-xs font-semibold"
+            style="background-color:#16a34a33; color:#4ade80;">⚡ Fast API mode active</span>
+      {% else %}
+      <span class="mt-3 inline-block rounded-full px-3 py-1 text-xs font-semibold"
+            style="background-color:#33415580; color:#94a3b8;">🐢 yt-dlp mode — set <code>YOUTUBE_API_KEY</code> in .env for fast mode</span>
+      {% endif %}
     </header>
 
     <form id="launchForm" method="POST" action="{{ url_for('run') }}" class="space-y-6">
-      {% for cat_key, cat in categories.items() %}
+
+      <!-- 1. Topic input -->
+      <div class="rounded-2xl p-6 shadow-lg" style="background-color:#1e293b;">
+        <label for="topic" class="mb-2 block text-sm font-semibold uppercase tracking-wider"
+               style="color:#38bdf8;">🎯 Topic</label>
+        <p class="mb-3 text-xs" style="color:#94a3b8;">e.g. <em>NBA dunks</em>, <em>Minecraft</em>, <em>Taylor Swift</em>, <em>cooking</em></p>
+        <div class="flex gap-2">
+          <input id="topic" type="text" autocomplete="off"
+                 placeholder="Type a topic and press Generate…"
+                 class="w-full rounded-lg p-3 text-sm focus:outline-none focus:ring-2"
+                 style="background-color:#0f172a; color:#f8fafc; border:1px solid #334155;" />
+          <button type="button" id="generateBtn"
+                  class="whitespace-nowrap rounded-lg px-5 py-3 text-sm font-bold text-white transition hover:opacity-80"
+                  style="background-color:#2563eb;">Generate</button>
+        </div>
+      </div>
+
+      <!-- 2. Search mode toggle: Shorts vs. general videos -->
       <div class="rounded-2xl p-6 shadow-lg" style="background-color:#1e293b;">
         <label class="mb-2 block text-sm font-semibold uppercase tracking-wider"
-               style="color:#38bdf8;">{{ cat.label }}</label>
-        <p class="mb-3 text-xs" style="color:#94a3b8;">One keyword per line.</p>
-        <textarea name="kw_{{ cat_key }}" rows="4"
-                  class="w-full rounded-lg p-3 font-mono text-sm focus:outline-none focus:ring-2"
-                  style="background-color:#0f172a; color:#f8fafc; border:1px solid #334155;"
-                  >{{ cat.keywords | join('\n') }}</textarea>
+               style="color:#38bdf8;">🎛️ Search Mode</label>
+        <p class="mb-3 text-xs" style="color:#94a3b8;">Shorts Only biases queries toward short-form; All Videos searches everything with no duration limit.</p>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label class="cursor-pointer">
+            <input type="radio" name="search_mode" value="shorts" class="peer sr-only"
+                   {% if default_search_mode == 'shorts' %}checked{% endif %} />
+            <div class="rounded-xl border border-slate-600 p-4 text-center transition
+                        peer-checked:border-sky-400 peer-checked:bg-sky-400/10">
+              <span class="block text-base font-bold" style="color:#f8fafc;">🎬 Shorts Only</span>
+              <span class="mt-1 block text-xs" style="color:#94a3b8;">≤ 3 min · "shorts"-biased search</span>
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="search_mode" value="all" class="peer sr-only"
+                   {% if default_search_mode == 'all' %}checked{% endif %} />
+            <div class="rounded-xl border border-slate-600 p-4 text-center transition
+                        peer-checked:border-sky-400 peer-checked:bg-sky-400/10">
+              <span class="block text-base font-bold" style="color:#f8fafc;">📺 All Videos</span>
+              <span class="mt-1 block text-xs" style="color:#94a3b8;">No duration limit · plain search</span>
+            </div>
+          </label>
+        </div>
       </div>
-      {% endfor %}
+
+      <!-- 3. Generated / editable keyword chips -->
+      <div class="rounded-2xl p-6 shadow-lg" style="background-color:#1e293b;">
+        <label class="mb-2 block text-sm font-semibold uppercase tracking-wider"
+               style="color:#38bdf8;">🔑 Keywords</label>
+        <p class="mb-3 text-xs" style="color:#94a3b8;">Remove with ✕, or add your own below. These are what gets searched.</p>
+
+        <div id="chips" class="flex flex-wrap gap-2"></div>
+        <p id="emptyHint" class="text-xs italic" style="color:#64748b;">No keywords yet — enter a topic above and hit Generate.</p>
+
+        <div class="mt-4 flex gap-2">
+          <input id="customKw" type="text" autocomplete="off"
+                 placeholder="Add a custom keyword…"
+                 class="w-full rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2"
+                 style="background-color:#0f172a; color:#f8fafc; border:1px solid #334155;" />
+          <button type="button" id="addKwBtn"
+                  class="whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-80"
+                  style="background-color:#334155;">+ Add</button>
+        </div>
+      </div>
+
+      <!-- 4. Primary inclusion gates: likes / views / per-keyword depth -->
+      <div class="rounded-2xl p-6 shadow-lg" style="background-color:#1e293b;">
+        <label class="mb-2 block text-sm font-semibold uppercase tracking-wider"
+               style="color:#38bdf8;">🎚️ Filters &amp; Scan Depth</label>
+        <p class="mb-4 text-xs" style="color:#94a3b8;">Videos must clear both thresholds to appear. Raise scan depth to pull more candidates per keyword (slower).</p>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label for="min_likes" class="mb-1 block text-xs font-medium" style="color:#94a3b8;">👍 Minimum Likes</label>
+            <input id="min_likes" name="min_likes" type="number" min="0" step="100"
+                   value="{{ default_min_likes }}"
+                   class="w-full rounded-lg p-3 text-sm focus:outline-none focus:ring-2"
+                   style="background-color:#0f172a; color:#f8fafc; border:1px solid #334155;" />
+          </div>
+          <div>
+            <label for="min_views" class="mb-1 block text-xs font-medium" style="color:#94a3b8;">👁️ Minimum Views</label>
+            <input id="min_views" name="min_views" type="number" min="0" step="1000"
+                   value="{{ default_min_views }}"
+                   class="w-full rounded-lg p-3 text-sm focus:outline-none focus:ring-2"
+                   style="background-color:#0f172a; color:#f8fafc; border:1px solid #334155;" />
+          </div>
+          <div>
+            <label for="per_keyword" class="mb-1 block text-xs font-medium" style="color:#94a3b8;">🔍 Videos / Keyword</label>
+            <input id="per_keyword" name="per_keyword" type="number" min="1" step="5"
+                   value="{{ default_per_keyword }}"
+                   class="w-full rounded-lg p-3 text-sm focus:outline-none focus:ring-2"
+                   style="background-color:#0f172a; color:#f8fafc; border:1px solid #334155;" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Date range preset (optional secondary filter) -->
+      <div class="rounded-2xl p-6 shadow-lg" style="background-color:#1e293b;">
+        <label for="date_range" class="mb-2 block text-sm font-semibold uppercase tracking-wider"
+               style="color:#38bdf8;">📅 Upload Time Range</label>
+        <p class="mb-3 text-xs" style="color:#94a3b8;">Optional. "All time" keeps everything; pick a window to also restrict by upload date.</p>
+        <select id="date_range" name="date_range"
+                class="w-full rounded-lg p-3 text-sm focus:outline-none focus:ring-2"
+                style="background-color:#0f172a; color:#f8fafc; border:1px solid #334155;">
+          {% for value, label in date_ranges.items() %}
+          <option value="{{ value }}" {% if value == default_date_range %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Hidden field populated from chips on submit -->
+      <input type="hidden" name="keywords" id="keywordsField" />
 
       <div class="pt-2 text-center">
         <button type="submit"
                 class="launch-btn rounded-2xl px-10 py-5 text-xl font-extrabold text-white"
                 style="background-color:#ef4444;">
-          ⚡ Launch ShortsCup AI Engine
+          ⚡ Launch TrendLens Engine
         </button>
       </div>
     </form>
   </main>
 
   <script>
-    document.getElementById('launchForm').addEventListener('submit', function () {
-      var o = document.getElementById('overlay');
+    // Templates from config.py — {topic} is substituted at generate time.
+    const TEMPLATES = {{ keyword_templates | tojson }};
+
+    const chipsEl    = document.getElementById('chips');
+    const emptyHint  = document.getElementById('emptyHint');
+    const topicEl    = document.getElementById('topic');
+    const customEl   = document.getElementById('customKw');
+
+    function refreshEmptyHint() {
+      emptyHint.style.display = chipsEl.children.length ? 'none' : 'block';
+    }
+
+    function currentKeywords() {
+      return Array.from(chipsEl.querySelectorAll('[data-kw]'))
+                  .map(el => el.dataset.kw);
+    }
+
+    function addChip(text) {
+      const kw = (text || '').trim();
+      if (!kw) return;
+      // De-duplicate (case-insensitive).
+      if (currentKeywords().some(k => k.toLowerCase() === kw.toLowerCase())) return;
+
+      const chip = document.createElement('span');
+      chip.dataset.kw = kw;
+      chip.className = 'inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium text-white';
+      chip.style.backgroundColor = '#334155';
+
+      const label = document.createElement('span');
+      label.textContent = kw;
+      chip.appendChild(label);
+
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.textContent = '✕';
+      x.className = 'leading-none transition hover:opacity-70';
+      x.style.color = '#94a3b8';
+      x.addEventListener('click', () => { chip.remove(); refreshEmptyHint(); });
+      chip.appendChild(x);
+
+      chipsEl.appendChild(chip);
+      refreshEmptyHint();
+    }
+
+    function generateFromTopic() {
+      const topic = topicEl.value.trim();
+      if (!topic) { topicEl.focus(); return; }
+      chipsEl.innerHTML = '';                       // replace previous suggestions
+      TEMPLATES.forEach(tpl => addChip(tpl.replace('{topic}', topic)));
+    }
+
+    document.getElementById('generateBtn').addEventListener('click', generateFromTopic);
+    topicEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); generateFromTopic(); }
+    });
+
+    function addCustom() { addChip(customEl.value); customEl.value = ''; customEl.focus(); }
+    document.getElementById('addKwBtn').addEventListener('click', addCustom);
+    customEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addCustom(); }
+    });
+
+    document.getElementById('launchForm').addEventListener('submit', function (e) {
+      const kws = currentKeywords();
+      if (!kws.length) {
+        e.preventDefault();
+        alert('Add at least one keyword before launching — enter a topic and hit Generate.');
+        return;
+      }
+      document.getElementById('keywordsField').value = kws.join('\n');
+      const o = document.getElementById('overlay');
       o.classList.remove('hidden');
       o.classList.add('flex');
     });
+
+    refreshEmptyHint();
   </script>
 </body>
 </html>

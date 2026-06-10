@@ -5,52 +5,135 @@ Everything tunable lives here so the engine and report generator stay declarativ
 
 from __future__ import annotations
 
+import os
+
 # --------------------------------------------------------------------------- #
-# Keyword categories (from CLAUDE.md spec)
+# YouTube Data API v3 (optional fast path)
 # --------------------------------------------------------------------------- #
-TOURNAMENT_KEYWORDS = [
-    "World Cup 2026 qualifiers",
-    "World Cup 2026 goals",
-    "Road to 2026 World Cup",
+# When YOUTUBE_API_KEY is set the engine uses the official API (seconds, no IP
+# risk, exact stats); otherwise it falls back to yt-dlp scraping. The key is
+# read from the environment or a git-ignored .env file at the project root.
+USE_API = True                     # master switch — set False to force yt-dlp
+API_ORDER = "viewCount"            # search.list ordering ("viewCount"/"relevance"/"date")
+
+
+def _load_dotenv() -> None:
+    """Populate os.environ from a project-root ``.env`` (KEY=VALUE lines).
+
+    Zero-dependency and non-destructive: never overrides a value already set in
+    the real environment. Silently no-ops when the file is absent.
+    """
+    root = os.path.dirname(os.path.dirname(__file__))
+    path = os.path.join(root, ".env")
+    if not os.path.isfile(path):
+        return
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key, value = key.strip(), value.strip().strip("'\"")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except OSError:
+        pass
+
+
+_load_dotenv()
+
+
+def get_api_key() -> str | None:
+    """Active YouTube Data API key, or ``None`` when unset/disabled."""
+    if not USE_API:
+        return None
+    return (os.environ.get("YOUTUBE_API_KEY") or "").strip() or None
+
+
+# --------------------------------------------------------------------------- #
+# Topic-driven keyword generation
+# --------------------------------------------------------------------------- #
+# The control panel takes a single free-text topic and expands it into concrete
+# search keywords via these templates ({topic} is substituted). Generic by
+# design — works for any subject, not just football/World Cup.
+KEYWORD_TEMPLATES: list[str] = [
+    "{topic} shorts",
+    "{topic} viral",
+    "{topic} 2026",
+    "{topic} highlights",
+    "{topic} best moments",
+    "{topic} reaction",
 ]
 
-PLAYER_TRANSFER_KEYWORDS = [
-    "Football transfer news shorts",
-    "Here we go football shorts",
-    "Arda Guler Turkey skills",
-    "Mbappe France 2026",
-]
+# Fallback topic used by the CLI / engine default when no topic is supplied.
+DEFAULT_TOPIC = "trending"
 
-ALGORITHM_HOOKS = [
-    "Football shorts edit",
-    "Football rare moments",
-    "Prime football edits",
-]
 
-KEYWORD_CATEGORIES: dict[str, list[str]] = {
-    "TOURNAMENT": TOURNAMENT_KEYWORDS,
-    "PLAYER_TRANSFER": PLAYER_TRANSFER_KEYWORDS,
-    "ALGORITHM_HOOKS": ALGORITHM_HOOKS,
+def generate_keywords(topic: str) -> list[str]:
+    """Expand a free-text ``topic`` into search keywords via KEYWORD_TEMPLATES.
+
+    Empty/whitespace topics yield an empty list (nothing to search).
+    """
+    topic = (topic or "").strip()
+    if not topic:
+        return []
+    return [tpl.format(topic=topic) for tpl in KEYWORD_TEMPLATES]
+
+
+# --------------------------------------------------------------------------- #
+# Search mode (control panel toggle)
+# --------------------------------------------------------------------------- #
+# "shorts": appends SEARCH_SUFFIX to queries and enforces MAX_DURATION.
+# "all": plain queries, no duration ceiling (long-form videos included).
+SEARCH_MODES: dict[str, str] = {
+    "shorts": "Shorts Only",
+    "all": "All Videos",
 }
+DEFAULT_SEARCH_MODE = "shorts"
+
+# --------------------------------------------------------------------------- #
+# Upload-date range presets (control panel selector -> days)
+# --------------------------------------------------------------------------- #
+# Ordered value -> label map. Value is the number of days back to keep videos.
+# "0" disables the upload-date filter entirely (likes threshold is the only gate).
+DATE_RANGES: dict[str, str] = {
+    "0": "All time",
+    "1": "Last 24 hours",
+    "7": "Last 7 days",
+    "30": "Last 30 days",
+}
+DEFAULT_DATE_RANGE = "0"
+
+# Primary filters: keep only videos with at least this many likes / views. These
+# are the quality gates the user tunes from the control panel — everything passing
+# them is shown (velocity/engagement only affect ranking & color, not inclusion).
+# MIN_VIEWS defaults to 0 (no view restriction) so likes is the gate out of the box.
+MIN_LIKES = 1000
+MIN_VIEWS = 0
 
 # --------------------------------------------------------------------------- #
 # Runtime settings
 # --------------------------------------------------------------------------- #
-RESULTS_PER_KEYWORD = 15           # shorts kept per keyword in full mode
-MAX_DURATION = 60                  # Shorts guarantee: keep duration <= 60s
-MIN_DELAY, MAX_DELAY = 1.0, 2.0    # random.uniform delay between requests (anti-ban)
+RESULTS_PER_KEYWORD = 15           # videos kept per keyword in full mode
+MAX_DURATION = 180                 # Shorts-mode ceiling: YouTube raised the max
+                                   # Shorts length to 3 min (180s) in 2024.
+                                   # Ignored entirely in "all" search mode.
+MIN_DELAY, MAX_DELAY = 0.5, 1.0    # random.uniform delay between requests (anti-ban)
+MAX_WORKERS = 4                    # parallel yt-dlp metadata fetches (keep modest
+                                   # to stay IP-safe; each worker still jitters)
 SOCKET_TIMEOUT = 15               # yt-dlp network timeout (seconds)
 
-# Plain keyword searches surface long compilation videos, not Shorts. We append
-# a suffix to bias toward Shorts and scan a larger flat pool, pre-filtering by
-# duration BEFORE the expensive deep extraction so only real Shorts are fetched.
+# Shorts mode only: plain keyword searches surface long compilation videos, so we
+# append a suffix to bias toward Shorts and scan a larger flat pool, pre-filtering
+# by duration BEFORE the expensive deep extraction. "all" mode skips both.
 SEARCH_SUFFIX = "shorts"
-SEARCH_POOL = 40                   # flat candidates scanned per keyword
+SEARCH_POOL = 40                   # flat candidates scanned per keyword (shorts mode)
 
 # --------------------------------------------------------------------------- #
 # IP-safe test mode
 # --------------------------------------------------------------------------- #
-TEST_MODE = True                   # light scan to avoid IP blocks while validating
+TEST_MODE = False                  # light scan to avoid IP blocks while validating
 TEST_MODE_KEYWORDS_PER_CATEGORY = 2
 TEST_MODE_RESULTS_PER_KEYWORD = 10
 
@@ -111,17 +194,13 @@ OUTPUT_HTML = "dashboard.html"
 
 
 def get_active_keywords() -> list[str]:
-    """Return the flat keyword list to scan, honoring TEST_MODE.
+    """Default keyword list (CLI / engine fallback) from ``DEFAULT_TOPIC``.
 
-    In test mode only the first ``TEST_MODE_KEYWORDS_PER_CATEGORY`` keywords of
-    each category are used to keep the network footprint small.
+    In test mode the list is trimmed to keep the network footprint small.
     """
-    keywords: list[str] = []
-    for category_keywords in KEYWORD_CATEGORIES.values():
-        if TEST_MODE:
-            keywords.extend(category_keywords[:TEST_MODE_KEYWORDS_PER_CATEGORY])
-        else:
-            keywords.extend(category_keywords)
+    keywords = generate_keywords(DEFAULT_TOPIC)
+    if TEST_MODE:
+        return keywords[:TEST_MODE_KEYWORDS_PER_CATEGORY]
     return keywords
 
 
