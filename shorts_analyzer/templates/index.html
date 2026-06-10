@@ -58,6 +58,10 @@
     html.light .overlay{background:rgba(246,247,249,.92)}
     .spinner{width:42px;height:42px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:spin .8s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
+    .flank{display:flex;align-items:center;justify-content:center;gap:1rem}
+    .flank::before,.flank::after{content:"";height:1px;flex:1;max-width:120px}
+    .flank::before{background:linear-gradient(to right,transparent,var(--border))}
+    .flank::after{background:linear-gradient(to left,transparent,var(--border))}
   </style>
 </head>
 <body class="min-h-screen">
@@ -70,7 +74,10 @@
   </div>
 
   <nav class="mx-auto flex max-w-3xl items-center justify-between px-4 py-5">
-    <span class="text-lg font-bold tracking-tight">TrendLens</span>
+    <span class="flex items-center gap-2 text-lg font-bold tracking-tight">
+      <svg width="28" height="20" viewBox="0 0 28 20" aria-hidden="true"><rect width="28" height="20" rx="5" fill="#FF0000"/><path d="M11.5 6l6.5 4-6.5 4z" fill="#fff"/></svg>
+      TrendLens
+    </span>
     <div class="flex items-center gap-2">
       {% if api_active %}
       <span class="badge"><span class="dot" style="background:#22c55e"></span> Fast API</span>
@@ -85,8 +92,8 @@
   </nav>
 
   <main class="mx-auto max-w-3xl px-4 pb-16">
-    <header class="mb-8">
-      <h1 class="text-3xl font-bold tracking-tight">Analyze any YouTube topic</h1>
+    <header class="mb-8 text-center">
+      <h1 class="flank text-3xl font-bold tracking-tight">Analyze any YouTube topic</h1>
       <p class="mt-2 muted">Generate keywords from a topic, tune the filters, and launch a live trend scan.</p>
     </header>
 

@@ -56,11 +56,19 @@
     .desc-toggle:hover{color:var(--accent)}
     .desc-toggle.open{transform:rotate(90deg);color:var(--accent)}
     .desc-cell{white-space:pre-line;color:var(--muted);font-size:.8rem;line-height:1.55;background:var(--surface-2)}
+    .flank{display:flex;align-items:center;justify-content:center;gap:1rem}
+    .flank::before,.flank::after{content:"";height:1px;flex:1;max-width:160px}
+    .flank::before{background:linear-gradient(to right,transparent,var(--border))}
+    .flank::after{background:linear-gradient(to left,transparent,var(--border))}
+    .chip-tag{display:inline-flex;align-items:center;gap:.35rem;color:#fff;border-radius:999px;padding:.3rem .7rem;font-size:.78rem;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.15)}
   </style>
 </head>
 <body class="min-h-screen">
   <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 py-5">
-    <span class="text-lg font-bold tracking-tight">TrendLens</span>
+    <span class="flex items-center gap-2 text-lg font-bold tracking-tight">
+      <svg width="28" height="20" viewBox="0 0 28 20" aria-hidden="true"><rect width="28" height="20" rx="5" fill="#FF0000"/><path d="M11.5 6l6.5 4-6.5 4z" fill="#fff"/></svg>
+      TrendLens
+    </span>
     <div class="flex items-center gap-2">
       {% if not standalone %}
       <a href="{{ url_for('index') }}" class="btn btn-ghost">New search</a>
@@ -73,8 +81,8 @@
   </nav>
 
   <main class="mx-auto max-w-7xl px-4 pb-16">
-    <header class="mb-8">
-      <h1 class="text-2xl font-bold tracking-tight">Trend report</h1>
+    <header class="mb-8 text-center">
+      <h1 class="flank text-2xl font-bold tracking-tight">Trend report</h1>
       <p class="mt-1 muted">Live results, sorted by velocity (views per hour).</p>
     </header>
 
@@ -113,7 +121,7 @@
         <p class="mb-2 text-xs font-semibold uppercase tracking-wider muted">Hashtags</p>
         <div class="flex flex-wrap gap-2">
           {% for h in analysis.hashtags %}
-          <span class="chip">{{ h.tag }} <span class="muted">×{{ h.count }}</span></span>
+          <span class="chip-tag" style="background:hsl(0 75% {{ (70 - h.pct * 26) | round(1) }}%)">{{ h.tag }} <span style="opacity:.8">×{{ h.count }}</span></span>
           {% endfor %}
         </div>
       </div>

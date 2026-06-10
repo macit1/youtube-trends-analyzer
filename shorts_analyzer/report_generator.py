@@ -133,13 +133,20 @@ def analyze_words(df: pd.DataFrame, top_n: int = 10, top_tags: int = 8) -> dict:
     chosen.sort(key=lambda wc: wc[1], reverse=True)
     items = chosen[:top_n]
     peak = items[0][1] if items else 1
+
+    top_hashtags = hashtags.most_common(top_tags)
+    hpeak = top_hashtags[0][1] if top_hashtags else 1
     return {
         "mode": mode,
         "words": [
             {"word": w, "count": c, "pct": max(round(c / peak * 100), 5)}
             for w, c in items
         ],
-        "hashtags": [{"tag": t, "count": c} for t, c in hashtags.most_common(top_tags)],
+        # ``pct`` (0..1) drives the red-intensity gradient on the chips.
+        "hashtags": [
+            {"tag": t, "count": c, "pct": round(c / hpeak, 3)}
+            for t, c in top_hashtags
+        ],
     }
 
 
