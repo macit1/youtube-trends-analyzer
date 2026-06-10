@@ -91,13 +91,13 @@
 
     {% if analysis and analysis.words %}
     <section class="card mb-8 p-6">
-      <h2 class="text-base font-semibold">Top words in descriptions</h2>
-      <p class="mb-5 mt-1 text-xs muted">Most frequent terms across the scraped titles &amp; descriptions (your search words and common stop-words excluded).</p>
+      <h2 class="text-base font-semibold">{% if analysis.mode == 'phrases' %}Trending phrases{% else %}Top words in titles{% endif %}</h2>
+      <p class="mb-5 mt-1 text-xs muted">Most repeated {% if analysis.mode == 'phrases' %}phrases{% else %}terms{% endif %} across the scraped video titles (your search words and common stop-words excluded).</p>
 
       <div class="space-y-2.5">
         {% for w in analysis.words %}
         <div class="flex items-center gap-3">
-          <span class="w-28 shrink-0 truncate text-right mono text-sm" title="{{ w.word }}">{{ w.word }}</span>
+          <span class="w-44 shrink-0 truncate text-right mono text-sm" title="{{ w.word }}">{{ w.word }}</span>
           <div class="bar-track flex-1"><div class="bar-fill" style="width:{{ w.pct }}%"></div></div>
           <span class="w-10 shrink-0 text-right mono text-sm muted">{{ w.count }}</span>
         </div>

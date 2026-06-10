@@ -38,20 +38,35 @@ _STOPWORDS = frozenset(
     """.split()
 )
 
-# Token = a #hashtag or a bare word (unicode-aware: keeps Turkish letters too).
-_TOKEN_RE = re.compile(r"#\w+|\w+", re.UNICODE)
+# Only true connectors are blocked at phrase boundaries — content words like
+# "all", "best", "new" are allowed inside phrases ("all goals", "best moments").
+_PHRASE_STOP = frozenset(
+    "the a an and or of to in on at for with from by as is are was were vs feat ft".split()
+)
+
+# Generic media boilerplate also blocked inside phrases so "official music" /
+# "music video" don't masquerade as trends (kept out of phrases, not words).
+_MEDIA_NOISE = frozenset(
+    "official music video audio lyrics lyric remix version full hd mv song songs "
+    "episode part trailer teaser".split()
+)
 
 
-def analyze_words(df: pd.DataFrame, top_n: int = 12, top_tags: int = 8) -> dict:
-    """Most frequent meaningful words + hashtags across titles & descriptions.
+def analyze_words(df: pd.DataFrame, top_n: int = 10, top_tags: int = 8) -> dict:
+    """Trend panel data: repeated 2-word phrases + clean single words + hashtags.
 
-    Gives the dashboard its "analysis tool" view. Filters stopwords, the searched
-    topic's own words (so associated terms surface, not just what you searched),
-    pure numbers (except 4-digit years), and 1-2 char noise. ``pct`` is each
-    word's count relative to the top word — drives the bar widths in the UI.
+    Single-word frequency over descriptions is noisy (lyric fragments, spam,
+    boilerplate), so we mine **titles** — the cleanest signal. Genuinely repeated
+    2-word phrases ("all goals", "transfer news") lead the list because they read
+    like trends; remaining slots are filled with the top single words that aren't
+    already part of a shown phrase. Hashtags (deliberate tags) come from titles +
+    descriptions and are shown separately. ``pct`` drives the bar widths.
+
+    Filtered out: stopwords, the searched topic's own words, pure numbers (except
+    4-digit years), and <3-char noise.
     """
     if df.empty:
-        return {"words": [], "hashtags": []}
+        return {"words": [], "hashtags": [], "mode": "words"}
 
     # Exclude the searched keywords' own tokens (e.g. "world", "cup", "2026").
     topic_tokens = {
@@ -60,31 +75,69 @@ def analyze_words(df: pd.DataFrame, top_n: int = 12, top_tags: int = 8) -> dict:
         for t in re.findall(r"\w+", str(kw).lower())
     }
 
-    blob = " ".join(
-        f"{r.get('title', '')} {r.get('description', '')}" for _, r in df.iterrows()
-    ).lower()
-
-    words: Counter[str] = Counter()
-    hashtags: Counter[str] = Counter()
-    for tok in _TOKEN_RE.findall(blob):
-        if tok.startswith("#"):
-            if len(tok) > 2:
-                hashtags[tok] += 1
-            continue
+    def keep_word(tok: str) -> bool:
         if len(tok) < 3:
-            continue
+            return False
         if tok.isdigit() and len(tok) != 4:  # keep years, drop other bare numbers
-            continue
-        if tok in _STOPWORDS or tok in topic_tokens:
-            continue
-        words[tok] += 1
+            return False
+        return tok not in _STOPWORDS and tok not in topic_tokens
 
-    top = words.most_common(top_n)
-    peak = top[0][1] if top else 1
+    def keep_in_phrase(tok: str) -> bool:
+        if len(tok) < 3 or tok.isdigit():
+            return False
+        return (
+            tok not in _PHRASE_STOP
+            and tok not in _MEDIA_NOISE
+            and tok not in topic_tokens
+        )
+
+    phrases: Counter[str] = Counter()  # 2-word phrases from titles
+    words: Counter[str] = Counter()    # single words from titles
+    hashtags: Counter[str] = Counter()
+
+    for _, r in df.iterrows():
+        # Hashtags: deliberate tags, mine from title + description.
+        for raw in (str(r.get("title", "")), str(r.get("description", ""))):
+            for tag in re.findall(r"#\w{2,}", raw.lower()):
+                hashtags[tag] += 1
+
+        # Phrases/words: titles only (descriptions are too spammy to be useful).
+        toks = re.findall(r"\w+", str(r.get("title", "")).lower())
+        for tok in toks:
+            if keep_word(tok):
+                words[tok] += 1
+        # Bigrams from consecutive title tokens where both survive the filter.
+        for a, b in zip(toks, toks[1:]):
+            if keep_in_phrase(a) and keep_in_phrase(b):
+                phrases[f"{a} {b}"] += 1
+
+    # Lead with genuinely repeated phrases (count >= 2); record their tokens so we
+    # don't then list those same words again as redundant single entries.
+    chosen: list[tuple[str, int]] = []
+    covered: set[str] = set()
+    for phrase, count in phrases.most_common():
+        if count < 2 or len(chosen) >= top_n:
+            break
+        chosen.append((phrase, count))
+        covered.update(phrase.split())
+    mode = "phrases" if len(chosen) >= 2 else "words"
+
+    # Fill remaining slots with the top single words not already in a phrase.
+    for word, count in words.most_common():
+        if len(chosen) >= top_n:
+            break
+        if word in covered:
+            continue
+        chosen.append((word, count))
+
+    chosen.sort(key=lambda wc: wc[1], reverse=True)
+    items = chosen[:top_n]
+    peak = items[0][1] if items else 1
     return {
+        "mode": mode,
         "words": [
             {"word": w, "count": c, "pct": max(round(c / peak * 100), 5)}
-            for w, c in top
+            for w, c in items
         ],
         "hashtags": [{"tag": t, "count": c} for t, c in hashtags.most_common(top_tags)],
     }
