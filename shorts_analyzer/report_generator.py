@@ -142,7 +142,7 @@ def analyze_words(df: pd.DataFrame, top_n: int = 10, top_tags: int = 8) -> dict:
             {"word": w, "count": c, "pct": max(round(c / peak * 100), 5)}
             for w, c in items
         ],
-        # ``pct`` (0..1) drives the red-intensity gradient on the chips.
+        # ``pct`` (0..1) drives the pink-magenta intensity gradient on the chips.
         "hashtags": [
             {"tag": t, "count": c, "pct": round(c / hpeak, 3)}
             for t, c in top_hashtags

@@ -8,6 +8,8 @@ POST /run  -> capture edited keywords, run the engine live, render the dashboard
 
 from __future__ import annotations
 
+import os
+
 from flask import Flask, jsonify, render_template, request
 
 from . import config
@@ -17,7 +19,9 @@ from .report_generator import build_context, suggest_keywords
 app = Flask(__name__)
 
 # Per-topic suggestion cache so repeated Generate clicks don't re-spend API quota.
+# Capped so a long-running process can't grow it without bound.
 _suggest_cache: dict[tuple[str, str], list[str]] = {}
+_SUGGEST_CACHE_MAX = 256
 
 
 @app.route("/", methods=["GET"])
@@ -46,6 +50,8 @@ def suggest():
 
     cache_key = (topic.lower(), search_mode)
     if cache_key not in _suggest_cache:
+        if len(_suggest_cache) >= _SUGGEST_CACHE_MAX:
+            _suggest_cache.clear()
         try:
             titles, descriptions = gather_suggestion_text(topic, search_mode)
             _suggest_cache[cache_key] = suggest_keywords(topic, titles, descriptions)
@@ -110,4 +116,9 @@ def run():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # Debug stays opt-in: the Werkzeug debugger must never run on a public host.
+    app.run(
+        debug=os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true"),
+        host=os.environ.get("HOST", "127.0.0.1"),
+        port=int(os.environ.get("PORT", "5000")),
+    )
