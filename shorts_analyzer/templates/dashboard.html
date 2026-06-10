@@ -56,16 +56,30 @@
     .desc-toggle:hover{color:var(--accent)}
     .desc-toggle.open{transform:rotate(90deg);color:var(--accent)}
     .desc-cell{white-space:pre-line;color:var(--muted);font-size:.8rem;line-height:1.55;background:var(--surface-2)}
+    .brand{font-family:'Inter','Montserrat',ui-sans-serif,system-ui,sans-serif}
+    .brand-trend,.brand-lens{-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;background-size:220% 220%;animation:brandwave 7s ease-in-out infinite alternate}
+    .brand-trend{background-image:linear-gradient(120deg,#f8fafc 0%,#cbd2dc 50%,#f8fafc 100%);text-shadow:0 1px 2px rgba(0,0,0,.15)}
+    html.light .brand-trend{background-image:linear-gradient(120deg,#212529 0%,#5b6470 50%,#212529 100%);text-shadow:0 1px 2px rgba(0,0,0,.08)}
+    .brand-lens{background-image:linear-gradient(120deg,#8B5CF6 0%,#E879F9 50%,#22D3EE 100%);animation-delay:-2s;text-shadow:0 1px 2px rgba(139,92,246,.12)}
+    @keyframes brandwave{0%{background-position:0% 50%}100%{background-position:100% 50%}}
+    .wave-text{background-image:linear-gradient(120deg,#8B5CF6 0%,#E879F9 30%,#22D3EE 60%,#8B5CF6 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;background-size:220% 220%;animation:brandwave 8s ease-in-out infinite alternate}
     .flank{display:flex;align-items:center;justify-content:center;gap:1rem}
     .flank::before,.flank::after{content:"";height:1px;flex:1;max-width:160px}
     .flank::before{background:linear-gradient(to right,transparent,var(--border))}
     .flank::after{background:linear-gradient(to left,transparent,var(--border))}
     .chip-tag{display:inline-flex;align-items:center;gap:.35rem;color:#fff;border-radius:999px;padding:.3rem .7rem;font-size:.78rem;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+    .info-tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid var(--border);color:var(--muted);font-size:.55rem;font-weight:700;cursor:help;vertical-align:1px;margin-left:.25rem;user-select:none;text-transform:none;letter-spacing:0;line-height:1}
+    th .info-tip{opacity:.6}
+    th:hover .info-tip{opacity:1}
+    th.has-tip{white-space:nowrap}
+    .info-tip:hover{color:#22D3EE;border-color:#22D3EE}
+    .info-tip .tip-body{position:absolute;top:135%;right:-10px;z-index:50;width:230px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.6rem .75rem;font-size:.72rem;font-weight:400;line-height:1.5;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .15s;white-space:normal;text-align:left}
+    .info-tip:hover .tip-body,.info-tip:focus .tip-body{opacity:1;pointer-events:auto}
   </style>
 </head>
 <body class="min-h-screen">
   <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 py-5">
-    <span class="text-lg font-bold tracking-tight">TrendLens</span>
+    <span class="brand" style="font-size:1.2rem;font-weight:700;letter-spacing:-.5px;user-select:none"><span class="brand-trend">Trend</span><span class="brand-lens">Lens</span></span>
     <div class="flex items-center gap-2">
       {% if not standalone %}
       <a href="{{ url_for('index') }}" class="btn btn-ghost">New search</a>
@@ -79,14 +93,14 @@
 
   <main class="mx-auto max-w-7xl px-4 pb-16">
     <header class="mb-8 text-center">
-      <h1 class="flank text-2xl font-bold tracking-tight">Trend report</h1>
+      <h1 class="flank text-2xl font-bold tracking-tight"><span class="wave-text">Trend report</span></h1>
       <p class="mt-1 muted">Live results, sorted by velocity (views per hour).</p>
     </header>
 
     <section class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
       <div class="card p-5">
         <p class="text-xs font-medium uppercase tracking-wider muted">Videos scraped</p>
-        <p class="mt-2 text-3xl font-bold">{{ total_scraped }}</p>
+        <p class="mt-2 text-3xl font-bold"><span class="wave-text">{{ total_scraped }}</span></p>
       </div>
       <div class="card p-5">
         <p class="text-xs font-medium uppercase tracking-wider muted">Critical trends</p>
@@ -94,7 +108,7 @@
       </div>
       <div class="card p-5">
         <p class="text-xs font-medium uppercase tracking-wider muted">Top keyword</p>
-        <p class="mt-2 break-words text-xl font-semibold">{{ top_keyword }}</p>
+        <p class="mt-2 break-words text-xl font-semibold"><span class="wave-text">{{ top_keyword }}</span></p>
       </div>
     </section>
 
@@ -118,7 +132,7 @@
         <p class="mb-2 text-xs font-semibold uppercase tracking-wider muted">Hashtags</p>
         <div class="flex flex-wrap gap-2">
           {% for h in analysis.hashtags %}
-          <span class="chip-tag" style="background:hsl(0 75% {{ (70 - h.pct * 26) | round(1) }}%)">{{ h.tag }} <span style="opacity:.8">×{{ h.count }}</span></span>
+          <span class="chip-tag" style="background:hsl({{ (330 - h.pct * 50) | round(1) }} {{ (62 + h.pct * 30) | round(1) }}% {{ (66 - h.pct * 22) | round(1) }}%)">{{ h.tag }} <span style="opacity:.8">×{{ h.count }}</span></span>
           {% endfor %}
         </div>
       </div>
@@ -132,13 +146,13 @@
           <tr>
             <th>#</th>
             <th>Video</th>
-            <th class="text-right">Velocity</th>
-            <th class="text-right">Engagement</th>
+            <th class="text-right has-tip">Velocity<span class="info-tip" tabindex="0">i<span class="tip-body">Views per hour since upload — how fast a video is gaining traction right now. The table is sorted by this, highest first.</span></span></th>
+            <th class="text-right has-tip">Engagement<span class="info-tip" tabindex="0">i<span class="tip-body">Likes as a percentage of views. High engagement means viewers don't just watch — they react. Above ~6% is excellent.</span></span></th>
             <th class="text-right">Views</th>
             <th class="text-right">Likes</th>
             <th class="text-right">Length</th>
             <th class="text-right">Uploaded</th>
-            <th>Status</th>
+            <th class="has-tip">Status<span class="info-tip" tabindex="0">i<span class="tip-body">CRITICAL = exploding right now (high velocity + high engagement) — act on it. POTENTIAL = strong, worth a look. SKIP = underperforming.</span></span></th>
             <th class="text-right">Action</th>
           </tr>
         </thead>

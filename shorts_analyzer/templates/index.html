@@ -39,6 +39,19 @@
     .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border-radius:10px;font-weight:600;font-size:.9rem;padding:.7rem 1.1rem;cursor:pointer;border:1px solid transparent;transition:background .15s,border-color .15s,opacity .15s;white-space:nowrap}
     .btn-primary{background:var(--accent);color:#fff}
     .btn-primary:hover{background:var(--accent-hover)}
+    .btn-gradient{color:#fff;border:none;background-image:linear-gradient(120deg,#8B5CF6 0%,#E879F9 30%,#22D3EE 60%,#8B5CF6 100%);background-size:220% 220%;animation:brandwave 7s ease-in-out infinite alternate;box-shadow:0 4px 14px rgba(139,92,246,.3)}
+    .btn-gradient:hover{box-shadow:0 6px 20px rgba(34,211,238,.4);filter:brightness(1.07)}
+    .info-tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--border);color:var(--muted);font-size:.65rem;font-weight:700;cursor:help;vertical-align:middle;margin-left:.35rem;user-select:none}
+    .info-tip:hover{color:#22D3EE;border-color:#22D3EE}
+    .info-tip .tip-body{position:absolute;bottom:135%;left:50%;transform:translateX(-50%);z-index:50;width:240px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.6rem .75rem;font-size:.72rem;font-weight:400;line-height:1.5;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .15s}
+    .info-tip:hover .tip-body,.info-tip:focus .tip-body{opacity:1;pointer-events:auto}
+    .steps{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:.5rem;margin-top:1.1rem}
+    .step{position:relative;display:inline-flex;align-items:center;gap:.45rem;font-size:.8rem;font-weight:600;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:.4rem .85rem .4rem .5rem;cursor:help;transition:border-color .15s}
+    .step:hover{border-color:#22D3EE}
+    .step-num{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;font-size:.62rem;font-weight:700;color:#fff;background-image:linear-gradient(120deg,#8B5CF6,#22D3EE)}
+    .step-arrow{color:var(--muted);font-size:.85rem;user-select:none}
+    .step .tip-body{position:absolute;top:135%;left:50%;transform:translateX(-50%);z-index:50;width:220px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.6rem .75rem;font-size:.72rem;font-weight:400;line-height:1.5;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .15s;text-align:left}
+    .step:hover .tip-body,.step:focus .tip-body{opacity:1;pointer-events:auto}
     .btn-ghost{background:var(--surface-2);color:var(--text);border-color:var(--border)}
     .btn-ghost:hover{border-color:var(--accent)}
     .chip{display:inline-flex;align-items:center;gap:.45rem;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:999px;padding:.3rem .7rem;font-size:.82rem;font-weight:500}
@@ -58,6 +71,13 @@
     html.light .overlay{background:rgba(246,247,249,.92)}
     .spinner{width:42px;height:42px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:spin .8s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
+    .brand{font-family:'Inter','Montserrat',ui-sans-serif,system-ui,sans-serif}
+    .brand-trend,.brand-lens{-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;background-size:220% 220%;animation:brandwave 7s ease-in-out infinite alternate}
+    .brand-trend{background-image:linear-gradient(120deg,#f8fafc 0%,#cbd2dc 50%,#f8fafc 100%);text-shadow:0 1px 2px rgba(0,0,0,.15)}
+    html.light .brand-trend{background-image:linear-gradient(120deg,#212529 0%,#5b6470 50%,#212529 100%);text-shadow:0 1px 2px rgba(0,0,0,.08)}
+    .brand-lens{background-image:linear-gradient(120deg,#8B5CF6 0%,#E879F9 50%,#22D3EE 100%);animation-delay:-2s;text-shadow:0 1px 2px rgba(139,92,246,.12)}
+    @keyframes brandwave{0%{background-position:0% 50%}100%{background-position:100% 50%}}
+    .wave-text{background-image:linear-gradient(120deg,#8B5CF6 0%,#E879F9 30%,#22D3EE 60%,#8B5CF6 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;background-size:220% 220%;animation:brandwave 8s ease-in-out infinite alternate}
     .flank{display:flex;align-items:center;justify-content:center;gap:1rem}
     .flank::before,.flank::after{content:"";height:1px;flex:1;max-width:120px}
     .flank::before{background:linear-gradient(to right,transparent,var(--border))}
@@ -74,7 +94,7 @@
   </div>
 
   <nav class="mx-auto flex max-w-3xl items-center justify-between px-4 py-5">
-    <span class="text-lg font-bold tracking-tight">TrendLens</span>
+    <span class="brand" style="font-size:1.2rem;font-weight:700;letter-spacing:-.5px;user-select:none"><span class="brand-trend">Trend</span><span class="brand-lens">Lens</span></span>
     <div class="flex items-center gap-2">
       {% if api_active %}
       <span class="badge"><span class="dot" style="background:#22c55e"></span> Fast API</span>
@@ -91,21 +111,30 @@
   <main class="mx-auto max-w-3xl px-4 pb-16">
     <header class="mb-8 text-center">
       <h1 class="flank text-3xl font-bold tracking-tight">
-        <span style="display:inline-flex;align-items:center;gap:.4rem;flex-wrap:wrap;justify-content:center">Analyze any <span style="display:inline-flex;align-items:center;gap:.3rem;white-space:nowrap"><svg width="28" height="20" viewBox="0 0 28 20" aria-hidden="true" style="flex-shrink:0"><rect width="28" height="20" rx="5" fill="#FF0000"/><path d="M11.5 6l6.5 4-6.5 4z" fill="#fff"/></svg><span style="color:var(--text)">YouTube</span></span> topic</span>
+        <span style="display:inline-flex;align-items:center;gap:.4rem;flex-wrap:wrap;justify-content:center"><span class="wave-text">Analyze any</span> <span style="display:inline-flex;align-items:center;gap:.3rem;white-space:nowrap"><svg width="28" height="20" viewBox="0 0 28 20" aria-hidden="true" style="flex-shrink:0"><rect width="28" height="20" rx="5" fill="#FF0000"/><path d="M11.5 6l6.5 4-6.5 4z" fill="#fff"/></svg><span style="color:var(--text)">YouTube</span></span> <span class="wave-text">topic</span></span>
       </h1>
       <p class="mt-2 muted">Generate keywords from a topic, tune the filters, and launch a live trend scan.</p>
+      <div class="steps">
+        <span class="step" tabindex="0"><span class="step-num">1</span>Pick a topic<span class="tip-body">Type anything you want to research — a game, a celebrity, a niche.</span></span>
+        <span class="step-arrow">→</span>
+        <span class="step" tabindex="0"><span class="step-num">2</span>Generate keywords<span class="tip-body">A quick live YouTube search suggests the terms people are actually using.</span></span>
+        <span class="step-arrow">→</span>
+        <span class="step" tabindex="0"><span class="step-num">3</span>Launch the scan<span class="tip-body">Every keyword is searched live, videos are scored by views-per-hour, and you get a ranked trend report.</span></span>
+      </div>
     </header>
 
     <form id="launchForm" method="POST" action="{{ url_for('run') }}" class="space-y-5">
 
       <!-- 1. Topic input -->
       <div class="card p-6">
-        <label for="topic" class="field-label">Topic</label>
-        <p class="mb-3 mt-1 text-xs muted">e.g. NBA dunks, Minecraft, Taylor Swift, cooking</p>
+        <label for="topic" class="field-label">Topic
+          <span class="info-tip" tabindex="0">i<span class="tip-body">Generate doesn't use AI guesswork — it runs a real, live YouTube search on your topic and extracts the keywords people are actually searching and titling videos with right now. You can edit, remove, or add to them before launching.</span></span>
+        </label>
+        <p class="mb-3 mt-1 text-xs muted">Start here: type any topic (e.g. NBA dunks, Minecraft, Taylor Swift, cooking) and press <strong style="color:var(--text)">Generate</strong> — it scans live YouTube results and builds your keyword list for you.</p>
         <div class="flex gap-2">
           <input id="topic" type="text" autocomplete="off" class="input"
                  placeholder="Type a topic and press Generate…" />
-          <button type="button" id="generateBtn" class="btn btn-primary">Generate</button>
+          <button type="button" id="generateBtn" class="btn btn-gradient">Generate</button>
         </div>
       </div>
 
@@ -135,8 +164,10 @@
 
       <!-- 3. Keywords -->
       <div class="card p-6">
-        <label class="field-label">Keywords</label>
-        <p class="mb-3 mt-1 text-xs muted">Remove with ×, or add your own below. These are what gets searched.</p>
+        <label class="field-label">Keywords
+          <span class="info-tip" tabindex="0">i<span class="tip-body">Each keyword becomes a separate live YouTube search when you launch. More keywords = wider coverage but a longer scan. 5–10 focused keywords is the sweet spot.</span></span>
+        </label>
+        <p class="mb-3 mt-1 text-xs muted">These are the exact terms that will be searched. Remove with ×, or add your own below.</p>
 
         <div id="genBarWrap" class="mb-3" style="display:none">
           <div style="height:4px;border-radius:999px;background:var(--surface-2);overflow:hidden">
@@ -156,7 +187,9 @@
 
       <!-- 4. Filters & scan depth -->
       <div class="card p-6">
-        <label class="field-label">Filters &amp; scan depth</label>
+        <label class="field-label">Filters &amp; scan depth
+          <span class="info-tip" tabindex="0">i<span class="tip-body">Filters weed out low-quality videos: anything below the minimum likes or views is dropped before scoring. "Videos / keyword" controls how many candidates are pulled per search — raise it for a deeper (but slower) scan.</span></span>
+        </label>
         <p class="mb-4 mt-1 text-xs muted">Videos must clear both thresholds to appear. Higher scan depth pulls more candidates per keyword (slower).</p>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
@@ -187,7 +220,7 @@
 
       <input type="hidden" name="keywords" id="keywordsField" />
 
-      <button type="submit" class="btn btn-primary w-full py-4 text-base">Launch analysis</button>
+      <button type="submit" class="btn btn-gradient w-full py-4 text-base">Launch analysis</button>
     </form>
   </main>
 
