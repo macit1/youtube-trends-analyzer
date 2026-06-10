@@ -8,13 +8,16 @@ POST /run  -> capture edited keywords, run the engine live, render the dashboard
 
 from __future__ import annotations
 
-from flask import Flask, render_template, request
+from flask import Flask, jsonify, render_template, request
 
 from . import config
-from .analyzer_engine import AnalyzerEngine
-from .report_generator import build_context
+from .analyzer_engine import AnalyzerEngine, gather_suggestion_text
+from .report_generator import build_context, suggest_keywords
 
 app = Flask(__name__)
+
+# Per-topic suggestion cache so repeated Generate clicks don't re-spend API quota.
+_suggest_cache: dict[tuple[str, str], list[str]] = {}
 
 
 @app.route("/", methods=["GET"])
@@ -31,6 +34,27 @@ def index():
         default_min_views=config.MIN_VIEWS,
         default_per_keyword=config.get_results_per_keyword(),
     )
+
+
+@app.route("/suggest", methods=["POST"])
+def suggest():
+    """Data-driven keyword suggestions for the Generate button (cached per topic)."""
+    topic = request.form.get("topic", "").strip()
+    search_mode = request.form.get("search_mode", config.DEFAULT_SEARCH_MODE)
+    if not topic:
+        return jsonify({"suggestions": []})
+
+    cache_key = (topic.lower(), search_mode)
+    if cache_key not in _suggest_cache:
+        try:
+            titles, descriptions = gather_suggestion_text(topic, search_mode)
+            _suggest_cache[cache_key] = suggest_keywords(topic, titles, descriptions)
+        except Exception as exc:  # noqa: BLE001 - degrade to static templates
+            print(f"[suggest] error: {exc}")
+            _suggest_cache[cache_key] = [
+                tpl.format(topic=topic) for tpl in config.KEYWORD_TEMPLATES
+            ]
+    return jsonify({"suggestions": _suggest_cache[cache_key]})
 
 
 @app.route("/run", methods=["POST"])

@@ -22,6 +22,45 @@ from . import config
 from .youtube_api import YouTubeAPI
 
 
+def _flat_search_titles(topic: str, search_mode: str, pool: int = 25) -> list[str]:
+    """Cheap flat yt-dlp search returning just result titles (no deep fetch)."""
+    suffix = ""
+    if search_mode == "shorts" and config.SEARCH_SUFFIX.lower() not in topic.lower():
+        suffix = f" {config.SEARCH_SUFFIX}"
+    with YoutubeDL(config.YDL_SEARCH_OPTS) as ydl:
+        info = ydl.extract_info(f"ytsearch{pool}:{topic}{suffix}", download=False)
+    return [
+        e["title"]
+        for e in (info or {}).get("entries") or []
+        if e and e.get("title")
+    ]
+
+
+def gather_suggestion_text(
+    topic: str, search_mode: str = "shorts"
+) -> tuple[list[str], list[str]]:
+    """Light search for keyword suggestions: return ``(titles, descriptions)``.
+
+    Hybrid like the main engine — API when a key is set, yt-dlp fallback on any
+    failure. Titles are the signal; descriptions (API only) feed hashtag mining.
+    """
+    key = config.get_api_key()
+    if key:
+        try:
+            items = YouTubeAPI(key).search_snippets(topic, 25, search_mode)
+            return (
+                [i["title"] for i in items],
+                [i["description"] for i in items],
+            )
+        except Exception as exc:  # noqa: BLE001 - fall back to scraping
+            print(f"[suggest] API failed ({exc}); falling back to yt-dlp")
+    try:
+        return _flat_search_titles(topic, search_mode), []
+    except Exception as exc:  # noqa: BLE001
+        print(f"[suggest] yt-dlp search failed: {exc}")
+        return [], []
+
+
 class AnalyzerEngine:
     """Search YouTube (Shorts or all videos), score results, return a DataFrame."""
 

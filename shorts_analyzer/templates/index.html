@@ -132,6 +132,12 @@
         <label class="field-label">Keywords</label>
         <p class="mb-3 mt-1 text-xs muted">Remove with ×, or add your own below. These are what gets searched.</p>
 
+        <div id="genBarWrap" class="mb-3" style="display:none">
+          <div style="height:4px;border-radius:999px;background:var(--surface-2);overflow:hidden">
+            <div id="genBar" style="height:100%;width:0;background:var(--accent);transition:width .15s"></div>
+          </div>
+        </div>
+
         <div id="chips" class="flex flex-wrap gap-2"></div>
         <p id="emptyHint" class="text-xs italic muted">No keywords yet — enter a topic above and hit Generate.</p>
 
@@ -226,11 +232,50 @@
       refreshEmptyHint();
     }
 
-    function generateFromTopic() {
-      const topic = topicEl.value.trim();
-      if (!topic) { topicEl.focus(); return; }
+    const genBtn     = document.getElementById('generateBtn');
+    const genBarWrap = document.getElementById('genBarWrap');
+    const genBar     = document.getElementById('genBar');
+
+    function fillFromTemplates(topic) {
       chipsEl.innerHTML = '';
       TEMPLATES.forEach(tpl => addChip(tpl.replace('{topic}', topic)));
+    }
+
+    async function generateFromTopic() {
+      const topic = topicEl.value.trim();
+      if (!topic) { topicEl.focus(); return; }
+      const modeEl = document.querySelector('input[name="search_mode"]:checked');
+      const mode = modeEl ? modeEl.value : 'shorts';
+
+      // Small "filling" effect while we fetch live suggestions.
+      genBtn.disabled = true;
+      genBarWrap.style.display = 'block';
+      let w = 12; genBar.style.width = w + '%';
+      const tick = setInterval(() => { w = Math.min(w + 9, 90); genBar.style.width = w + '%'; }, 140);
+
+      try {
+        const fd = new FormData();
+        fd.append('topic', topic);
+        fd.append('search_mode', mode);
+        const resp = await fetch('/suggest', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (data.suggestions && data.suggestions.length) {
+          chipsEl.innerHTML = '';
+          data.suggestions.forEach(addChip);
+        } else {
+          fillFromTemplates(topic);
+        }
+      } catch (err) {
+        fillFromTemplates(topic);   // network/JS failure — never leave it empty
+      } finally {
+        clearInterval(tick);
+        genBar.style.width = '100%';
+        setTimeout(() => {
+          genBarWrap.style.display = 'none';
+          genBar.style.width = '0%';
+          genBtn.disabled = false;
+        }, 250);
+      }
     }
 
     document.getElementById('generateBtn').addEventListener('click', generateFromTopic);

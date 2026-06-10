@@ -143,6 +143,62 @@ def analyze_words(df: pd.DataFrame, top_n: int = 10, top_tags: int = 8) -> dict:
     }
 
 
+def suggest_keywords(
+    topic: str,
+    titles: list[str],
+    descriptions: list[str] | None = None,
+    n: int = 6,
+) -> list[str]:
+    """Data-driven keyword suggestions from a quick search's titles + hashtags.
+
+    Mines the terms most commonly added alongside ``topic`` and returns them as
+    ready-to-search ``"{topic} {term}"`` keywords (bare topic first). Falls back to
+    the static KEYWORD_TEMPLATES when the search yielded nothing useful.
+    """
+    topic = (topic or "").strip()
+    if not topic:
+        return []
+    descriptions = descriptions or []
+    topic_tokens = set(re.findall(r"\w+", topic.lower()))
+
+    def keep(tok: str) -> bool:
+        if len(tok) < 3:
+            return False
+        if tok.isdigit() and len(tok) != 4:
+            return False
+        return tok not in _STOPWORDS and tok not in _MEDIA_NOISE and tok not in topic_tokens
+
+    words: Counter[str] = Counter()
+    hashtags: Counter[str] = Counter()
+    for t in titles:
+        for tok in re.findall(r"\w+", str(t).lower()):
+            if keep(tok):
+                words[tok] += 1
+    for txt in list(titles) + list(descriptions):
+        for tag in re.findall(r"#\w{2,}", str(txt).lower()):
+            hashtags[tag] += 1
+
+    suggestions = [topic]
+    suggestions += [f"{topic} {w}" for w, _ in words.most_common(n)]
+    for tag, _ in hashtags.most_common(2):
+        word = tag.lstrip("#")
+        if word not in topic_tokens:
+            suggestions.append(f"{topic} {word}")
+
+    # De-duplicate (case-insensitive), preserve order.
+    seen: set[str] = set()
+    out: list[str] = []
+    for s in suggestions:
+        key = s.lower()
+        if key not in seen:
+            seen.add(key)
+            out.append(s)
+
+    if len(out) <= 1:  # search gave nothing usable -> static templates
+        return [tpl.format(topic=topic) for tpl in config.KEYWORD_TEMPLATES]
+    return out[: n + 1]
+
+
 def _fmt_duration(seconds: int) -> str:
     """``95 -> "1:35"``, ``3700 -> "1:01:40"``; 0/unknown -> em dash."""
     seconds = int(seconds or 0)

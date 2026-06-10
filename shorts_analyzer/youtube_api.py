@@ -119,6 +119,33 @@ class YouTubeAPI:
             if item.get("id", {}).get("videoId")
         ]
 
+    def search_snippets(
+        self, query: str, max_results: int, search_mode: str
+    ) -> list[dict]:
+        """Light search returning ``{title, description}`` per result in one call.
+
+        Uses ``part=snippet`` so titles + (truncated) descriptions arrive without a
+        follow-up ``videos.list`` — used for keyword suggestions. Same 100-unit cost
+        as any ``search.list``.
+        """
+        params = {
+            "part": "snippet",
+            "q": query,
+            "type": "video",
+            "maxResults": min(max(max_results, 1), 50),
+            "order": config.API_ORDER,
+        }
+        if search_mode == "shorts":
+            params["videoDuration"] = "short"
+        data = self._get("search", params)
+        out: list[dict] = []
+        for item in data.get("items", []):
+            sn = item.get("snippet", {})
+            out.append(
+                {"title": sn.get("title", ""), "description": sn.get("description", "")}
+            )
+        return out
+
     def fetch_stats(self, video_ids: list[str]) -> list[dict]:
         """Hydrate IDs into yt-dlp-shaped info dicts (batched 50/request)."""
         infos: list[dict] = []
