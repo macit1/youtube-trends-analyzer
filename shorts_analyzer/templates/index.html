@@ -64,8 +64,9 @@
   <!-- Loading interceptor overlay -->
   <div id="overlay" class="overlay">
     <div class="spinner"></div>
-    <p class="text-base font-semibold">Scraping &amp; analyzing live YouTube videos…</p>
-    <p class="text-sm muted">This can take a moment — keep this tab open.</p>
+    <p class="text-base font-semibold">Building your trend report</p>
+    <p id="loadingStatus" class="text-sm muted">Searching YouTube…</p>
+    <button type="button" id="cancelBtn" class="btn btn-ghost mt-2">Cancel</button>
   </div>
 
   <nav class="mx-auto flex max-w-3xl items-center justify-between px-4 py-5">
@@ -243,15 +244,66 @@
       if (e.key === 'Enter') { e.preventDefault(); addCustom(); }
     });
 
-    document.getElementById('launchForm').addEventListener('submit', function (e) {
+    // --- Loading overlay with cycling status + real cancel ---
+    const overlay       = document.getElementById('overlay');
+    const loadingStatus = document.getElementById('loadingStatus');
+    const LOADING_MSGS  = [
+      'Searching YouTube…',
+      'Fetching video stats…',
+      'Scoring velocity & engagement…',
+      'Analyzing descriptions…',
+      'Building your report…',
+    ];
+    let msgTimer = null;
+    let runController = null;
+
+    function startLoading() {
+      overlay.style.display = 'flex';
+      let i = 0;
+      loadingStatus.textContent = LOADING_MSGS[0];
+      msgTimer = setInterval(() => {
+        i = (i + 1) % LOADING_MSGS.length;
+        loadingStatus.textContent = LOADING_MSGS[i];
+      }, 1800);
+    }
+    function stopLoading() {
+      overlay.style.display = 'none';
+      if (msgTimer) { clearInterval(msgTimer); msgTimer = null; }
+    }
+
+    document.getElementById('cancelBtn').addEventListener('click', () => {
+      if (runController) runController.abort();
+      stopLoading();
+    });
+
+    document.getElementById('launchForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
       const kws = currentKeywords();
       if (!kws.length) {
-        e.preventDefault();
         alert('Add at least one keyword before launching — enter a topic and hit Generate.');
         return;
       }
       document.getElementById('keywordsField').value = kws.join('\n');
-      document.getElementById('overlay').style.display = 'flex';
+
+      const form = e.target;
+      runController = new AbortController();
+      startLoading();
+      try {
+        const resp = await fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+          signal: runController.signal,
+        });
+        const html = await resp.text();
+        // Swap in the dashboard document (its own scripts re-run on write).
+        document.open();
+        document.write(html);
+        document.close();
+      } catch (err) {
+        if (err.name === 'AbortError') return;   // user cancelled — stay on the form
+        stopLoading();
+        alert('Something went wrong while running the analysis. Please try again.');
+      }
     });
 
     refreshEmptyHint();
