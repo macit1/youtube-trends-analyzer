@@ -52,6 +52,10 @@
     tbody tr:hover{background:var(--surface-2)}
     .bar-track{height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden}
     .bar-fill{height:100%;border-radius:999px;background:var(--accent)}
+    .desc-toggle{background:none;border:none;cursor:pointer;color:var(--muted);padding:0;margin-right:.35rem;display:inline-flex;vertical-align:middle;transition:transform .15s,color .15s}
+    .desc-toggle:hover{color:var(--accent)}
+    .desc-toggle.open{transform:rotate(90deg);color:var(--accent)}
+    .desc-cell{white-space:pre-line;color:var(--muted);font-size:.8rem;line-height:1.55;background:var(--surface-2)}
   </style>
 </head>
 <body class="min-h-screen">
@@ -136,7 +140,9 @@
         <tbody>
           {% for row in rows %}
           <tr>
-            <td class="mono muted">{{ row.rank }}</td>
+            <td class="mono muted">
+              {% if row.description %}<button type="button" class="desc-toggle" aria-label="Show description"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>{% endif %}{{ row.rank }}
+            </td>
             <td>
               <p class="font-semibold">{{ row.title }}</p>
               <p class="text-xs muted">{{ row.channel }}</p>
@@ -154,6 +160,11 @@
               <a href="{{ row.url }}" target="_blank" rel="noopener" class="btn btn-primary">Watch ↗</a>
             </td>
           </tr>
+          {% if row.description %}
+          <tr class="desc-row" hidden>
+            <td colspan="10" class="desc-cell">{{ row.description }}</td>
+          </tr>
+          {% endif %}
           {% else %}
           <tr><td colspan="10" class="py-10 text-center muted">
             No videos collected.
@@ -188,6 +199,17 @@
     document.getElementById('themeToggle').addEventListener('click', function () {
       var isLight = document.documentElement.classList.toggle('light');
       localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    });
+
+    // Expand/collapse a video's description row.
+    document.querySelectorAll('.desc-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var detail = btn.closest('tr').nextElementSibling;
+        if (!detail || !detail.classList.contains('desc-row')) return;
+        var hidden = detail.hasAttribute('hidden');
+        if (hidden) { detail.removeAttribute('hidden'); } else { detail.setAttribute('hidden', ''); }
+        btn.classList.toggle('open', hidden);
+      });
     });
   </script>
 </body>

@@ -233,11 +233,15 @@ def build_context(df: pd.DataFrame) -> dict:
             title = str(r["title"])
             if len(title) > 70:
                 title = title[:67] + "…"
+            desc = str(r.get("description", "") or "").strip()
+            if len(desc) > 400:
+                desc = desc[:400] + "…"
             rows.append(
                 {
                     "rank": rank,
                     "title": title,
                     "channel": str(r["channel"]),
+                    "description": desc,
                     "velocity": float(r["velocity"]),
                     "engagement": float(r["engagement"]),
                     "views": int(r["views"]),
