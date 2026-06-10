@@ -116,9 +116,10 @@ def run():
 
 
 if __name__ == "__main__":
+    # Local/dev entry point only — production runs via gunicorn (see Procfile).
     # Debug stays opt-in: the Werkzeug debugger must never run on a public host.
     app.run(
         debug=os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true"),
-        host=os.environ.get("HOST", "127.0.0.1"),
+        host=os.environ.get("HOST", "0.0.0.0"),
         port=int(os.environ.get("PORT", "5000")),
     )
