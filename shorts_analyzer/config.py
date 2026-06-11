@@ -44,11 +44,33 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 
-def get_api_key() -> str | None:
-    """Active YouTube Data API key, or ``None`` when unset/disabled."""
+def get_api_keys() -> list[str]:
+    """All configured YouTube Data API keys, in rotation order.
+
+    Sources (combined, de-duplicated, order preserved):
+    - YOUTUBE_API_KEY, then YOUTUBE_API_KEY_2 .. YOUTUBE_API_KEY_9
+    - YOUTUBE_API_KEYS: comma-separated list (alternative single-variable form)
+
+    When one key's daily quota is exhausted the client rotates to the next
+    (see youtube_api.KeyPool). Empty list -> engine runs on yt-dlp only.
+    """
     if not USE_API:
-        return None
-    return (os.environ.get("YOUTUBE_API_KEY") or "").strip() or None
+        return []
+    raw: list[str] = [os.environ.get("YOUTUBE_API_KEY", "")]
+    raw += [os.environ.get(f"YOUTUBE_API_KEY_{i}", "") for i in range(2, 10)]
+    raw += os.environ.get("YOUTUBE_API_KEYS", "").split(",")
+    keys: list[str] = []
+    for item in raw:
+        item = item.strip()
+        if item and item not in keys:
+            keys.append(item)
+    return keys
+
+
+def get_api_key() -> str | None:
+    """First configured API key, or ``None`` when unset/disabled."""
+    keys = get_api_keys()
+    return keys[0] if keys else None
 
 
 # --------------------------------------------------------------------------- #

@@ -14,10 +14,11 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from . import config
 
@@ -59,16 +60,89 @@ def _parse_published(iso: str | None) -> int | None:
         return None
 
 
-class YouTubeAPI:
-    """Thin wrapper over the two endpoints the pipeline needs."""
+class KeyPool:
+    """Rotating pool of API keys shared across the whole process.
 
-    def __init__(self, api_key: str) -> None:
-        self.api_key = api_key
+    When a key hits its daily quota it's marked exhausted and the next key
+    takes over. Quotas reset at midnight Pacific, so the exhausted set is
+    cleared when the Pacific calendar day changes. Thread-safe (the suggest
+    endpoint and engine runs can overlap under gunicorn threads).
+    """
+
+    def __init__(self, keys: list[str]) -> None:
+        self._keys = list(keys)
+        self._exhausted: set[str] = set()
+        self._lock = threading.Lock()
+        self._day = self._pacific_day()
+
+    @staticmethod
+    def _pacific_day():
+        # Fixed UTC-8 (PST) is fine here: worst case during PDT a key un-marks
+        # an hour late, and a stray retry just gets re-marked exhausted.
+        return datetime.now(timezone(timedelta(hours=-8))).date()
+
+    def current(self) -> str | None:
+        """First non-exhausted key, or ``None`` when all are spent today."""
+        with self._lock:
+            today = self._pacific_day()
+            if today != self._day:  # daily quota reset -> everyone back in play
+                self._day = today
+                self._exhausted.clear()
+            for key in self._keys:
+                if key not in self._exhausted:
+                    return key
+            return None
+
+    def mark_exhausted(self, key: str) -> None:
+        with self._lock:
+            self._exhausted.add(key)
+
+    def __len__(self) -> int:
+        return len(self._keys)
+
+
+_pool: KeyPool | None = None
+_pool_lock = threading.Lock()
+
+
+def get_key_pool() -> KeyPool:
+    """Process-wide pool built from config (rebuilt if the env keys change)."""
+    global _pool
+    keys = config.get_api_keys()
+    with _pool_lock:
+        if _pool is None or _pool._keys != keys:
+            _pool = KeyPool(keys)
+        return _pool
+
+
+class YouTubeAPI:
+    """Thin wrapper over the two endpoints the pipeline needs.
+
+    Uses the shared :class:`KeyPool`: every request takes the current live key,
+    and a quota error rotates to the next key transparently. QuotaExceeded only
+    propagates once ALL configured keys are spent for the day.
+    """
+
+    def __init__(self, pool: KeyPool | None = None) -> None:
+        self.pool = pool or get_key_pool()
 
     # ------------------------------------------------------------------ #
     def _get(self, endpoint: str, params: dict) -> dict:
-        """GET an endpoint; raise QuotaExceeded/APIError on failure."""
-        query = urllib.parse.urlencode({**params, "key": self.api_key})
+        """GET an endpoint, rotating keys on quota errors."""
+        while True:
+            key = self.pool.current()
+            if key is None:
+                raise QuotaExceeded("all configured API keys exhausted for today")
+            try:
+                return self._get_with_key(endpoint, params, key)
+            except QuotaExceeded:
+                idx = self.pool._keys.index(key) + 1
+                print(f"[api] key #{idx} quota exhausted; rotating to next key")
+                self.pool.mark_exhausted(key)
+
+    def _get_with_key(self, endpoint: str, params: dict, api_key: str) -> dict:
+        """GET an endpoint with one specific key; raise QuotaExceeded/APIError."""
+        query = urllib.parse.urlencode({**params, "key": api_key})
         req = urllib.request.Request(
             f"{API_BASE}/{endpoint}?{query}", headers={"Accept": "application/json"}
         )

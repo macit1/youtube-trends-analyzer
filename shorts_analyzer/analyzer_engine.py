@@ -44,10 +44,9 @@ def gather_suggestion_text(
     Hybrid like the main engine — API when a key is set, yt-dlp fallback on any
     failure. Titles are the signal; descriptions (API only) feed hashtag mining.
     """
-    key = config.get_api_key()
-    if key:
+    if config.get_api_keys():
         try:
-            items = YouTubeAPI(key).search_snippets(topic, 25, search_mode)
+            items = YouTubeAPI().search_snippets(topic, 25, search_mode)
             return (
                 [i["title"] for i in items],
                 [i["description"] for i in items],
@@ -102,8 +101,7 @@ class AnalyzerEngine:
         # Hybrid data source: use the official API when a key is configured,
         # otherwise scrape with yt-dlp. ``provider`` reflects what actually ran
         # (the API path can fall back mid-run on quota/error).
-        key = config.get_api_key()
-        self.api = YouTubeAPI(key) if key else None
+        self.api = YouTubeAPI() if config.get_api_keys() else None
         self.provider = "yt-dlp"
 
     # ------------------------------------------------------------------ #
