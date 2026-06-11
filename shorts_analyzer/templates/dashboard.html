@@ -190,7 +190,9 @@
           {% else %}
           <tr><td colspan="10" class="py-10 text-center muted">
             No videos collected.
-            {% if stats and stats.candidates == 0 %}
+            {% if provider == 'unavailable' %}
+            <span class="mt-1 block text-xs">The YouTube API is unavailable right now{% if api_error %} ({{ api_error }}){% endif %}. Daily quota resets at midnight Pacific — try again later.</span>
+            {% elif stats and stats.candidates == 0 %}
             <span class="mt-1 block text-xs">The search itself returned nothing — check the server console for <code>[search-error]</code> (possible rate limit) and try again.</span>
             {% elif stats %}
             <span class="mt-1 block text-xs">All {{ stats.candidates }} candidates were filtered out — try lowering Minimum Likes/Views or widening the upload time range.</span>

@@ -53,6 +53,10 @@ def gather_suggestion_text(
             )
         except Exception as exc:  # noqa: BLE001 - fall back to scraping
             print(f"[suggest] API failed ({exc}); falling back to yt-dlp")
+    if not config.scraper_enabled():
+        # Bot-blocked host: skip the doomed scrape so /suggest answers fast
+        # (the route then falls back to the static keyword templates).
+        return [], []
     try:
         return _flat_search_titles(topic, search_mode), []
     except Exception as exc:  # noqa: BLE001
@@ -103,6 +107,9 @@ class AnalyzerEngine:
         # (the API path can fall back mid-run on quota/error).
         self.api = YouTubeAPI() if config.get_api_keys() else None
         self.provider = "yt-dlp"
+        # Why the API path bailed (quota, bad key...) — surfaced on the
+        # dashboard when the scraper fallback is unavailable too.
+        self.api_error: str | None = None
 
     # ------------------------------------------------------------------ #
     # Discovery
@@ -378,9 +385,15 @@ class AnalyzerEngine:
                 stats = self._empty_stats()
                 rows = []
                 self.api = None  # disable for the rest of this run
+                self.api_error = str(exc)[:200]
 
         # --- Fallback path: yt-dlp scraping (also the default when no key) ---
-        if self.api is None:
+        if self.api is None and not config.scraper_enabled():
+            # Datacenter host: scraping is bot-blocked and would only burn
+            # minutes before a 502. Return fast and let the dashboard explain.
+            self.provider = "unavailable"
+            print("[engine] yt-dlp fallback disabled on this host; skipping scrape")
+        elif self.api is None:
             self.provider = "yt-dlp"
             tasks = self._collect_candidates()
             stats["candidates"] = len(tasks)

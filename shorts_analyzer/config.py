@@ -73,6 +73,21 @@ def get_api_key() -> str | None:
     return keys[0] if keys else None
 
 
+def scraper_enabled() -> bool:
+    """Whether the yt-dlp scraping fallback may run on this host.
+
+    YouTube bot-blocks datacenter IPs, so on Railway the fallback never
+    succeeds — it just grinds through per-video timeouts until the proxy
+    returns 502. Auto-disabled there; local runs keep it. Overrides:
+    FORCE_YTDLP=1 forces it on, DISABLE_YTDLP=1 forces it off.
+    """
+    if os.environ.get("FORCE_YTDLP", "").lower() in ("1", "true"):
+        return True
+    if os.environ.get("DISABLE_YTDLP", "").lower() in ("1", "true"):
+        return False
+    return "RAILWAY_ENVIRONMENT" not in os.environ
+
+
 # --------------------------------------------------------------------------- #
 # Topic-driven keyword generation
 # --------------------------------------------------------------------------- #

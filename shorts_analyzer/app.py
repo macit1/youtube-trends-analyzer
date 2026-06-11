@@ -111,6 +111,7 @@ def run():
         standalone=False,
         stats=engine.stats,
         provider=engine.provider,
+        api_error=engine.api_error,
         **build_context(df),
     )
 
