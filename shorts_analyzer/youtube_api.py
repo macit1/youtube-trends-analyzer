@@ -38,6 +38,11 @@ class APIError(Exception):
     """Any other API/transport failure — triggers fallback."""
 
 
+class KeyUnusable(APIError):
+    """Key-scoped failure (invalid key, API disabled in that project, key
+    blocked/restricted) — the pool rotates past it instead of giving up."""
+
+
 def _parse_duration(iso: str | None) -> int | None:
     """``"PT1M35S" -> 95``; ``None``/unparseable -> ``None``."""
     if not iso:
@@ -128,16 +133,22 @@ class YouTubeAPI:
 
     # ------------------------------------------------------------------ #
     def _get(self, endpoint: str, params: dict) -> dict:
-        """GET an endpoint, rotating keys on quota errors."""
+        """GET an endpoint, rotating keys on quota or key-scoped errors."""
+        last_error: Exception | None = None
         while True:
             key = self.pool.current()
             if key is None:
-                raise QuotaExceeded("all configured API keys exhausted for today")
+                detail = f" (last error: {last_error})" if last_error else ""
+                raise QuotaExceeded(
+                    f"all {len(self.pool)} API key(s) exhausted or unusable{detail}"
+                )
             try:
                 return self._get_with_key(endpoint, params, key)
-            except QuotaExceeded:
+            except (QuotaExceeded, KeyUnusable) as exc:
+                last_error = exc
                 idx = self.pool._keys.index(key) + 1
-                print(f"[api] key #{idx} quota exhausted; rotating to next key")
+                kind = "quota exhausted" if isinstance(exc, QuotaExceeded) else "unusable"
+                print(f"[api] key #{idx} {kind}; rotating to next key ({exc})")
                 self.pool.mark_exhausted(key)
 
     def _get_with_key(self, endpoint: str, params: dict, api_key: str) -> dict:
@@ -155,9 +166,27 @@ class YouTubeAPI:
                 body = exc.read().decode("utf-8", "replace")
             except Exception:  # noqa: BLE001
                 pass
-            # 403 covers both quotaExceeded and rateLimitExceeded reasons.
-            if exc.code == 403 and ("quota" in body.lower() or "rateLimit" in body):
+            low = body.lower()
+            # Quota/rate-limit: Google answers 403 (quotaExceeded, rateLimitExceeded,
+            # dailyLimitExceeded) OR 429 (RESOURCE_EXHAUSTED) depending on the path.
+            if exc.code == 429 or (
+                exc.code == 403
+                and ("quota" in low or "ratelimit" in low or "dailylimit" in low)
+            ):
                 raise QuotaExceeded(body[:300]) from exc
+            # Key-scoped failures: invalid key, YouTube Data API not enabled in
+            # that Google Cloud project, or key blocked/restricted. The pool
+            # should skip this key and try the rest, not abandon the API path.
+            if exc.code in (400, 403) and (
+                "api key" in low          # "API key not valid" / "API key expired"
+                or "keyinvalid" in low
+                or "accessnotconfigured" in low
+                or "has not been used" in low
+                or "is disabled" in low
+                or "blocked" in low
+                or "permission_denied" in low
+            ):
+                raise KeyUnusable(f"HTTP {exc.code}: {body[:300]}") from exc
             raise APIError(f"HTTP {exc.code}: {body[:300]}") from exc
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
             raise APIError(str(exc)) from exc
