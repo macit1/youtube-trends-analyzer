@@ -79,7 +79,10 @@
 </head>
 <body class="min-h-screen">
   <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 py-5">
-    <span class="brand" style="font-size:1.2rem;font-weight:700;letter-spacing:-.5px;user-select:none"><span class="brand-trend">Trend</span><span class="brand-lens">Lens</span></span>
+    <span class="flex items-baseline">
+      <span class="brand" style="font-size:1.2rem;font-weight:700;letter-spacing:-.5px;user-select:none"><span class="brand-trend">Trend</span><span class="brand-lens">Lens</span></span>
+      <span class="hidden md:inline text-xs italic muted" style="margin-left:.9rem;padding-left:.9rem;border-left:1px solid var(--border)">Close enough to see what is accelerating. Wide enough to see why.</span>
+    </span>
     <div class="flex items-center gap-2">
       {% if not standalone %}
       <a href="{{ url_for('index') }}" class="btn btn-ghost">New search</a>

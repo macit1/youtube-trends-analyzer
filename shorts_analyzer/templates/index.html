@@ -76,6 +76,7 @@
     .brand-lens{background-image:linear-gradient(120deg,#8B5CF6 0%,#E879F9 50%,#22D3EE 100%);animation-delay:-2s;text-shadow:0 1px 2px rgba(139,92,246,.12)}
     @keyframes brandwave{0%{background-position:0% 50%}100%{background-position:100% 50%}}
     .wave-text{background-image:linear-gradient(120deg,#8B5CF6 0%,#E879F9 30%,#22D3EE 60%,#8B5CF6 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;background-size:220% 220%;animation:brandwave 8s ease-in-out infinite alternate}
+    .tagline{font-size:.95rem;font-style:italic;color:var(--muted);letter-spacing:.01em}
     .flank{display:flex;align-items:center;justify-content:center;gap:1rem}
     .flank::before,.flank::after{content:"";height:1px;flex:1;max-width:120px}
     .flank::before{background:linear-gradient(to right,transparent,var(--border))}
@@ -111,7 +112,7 @@
       <h1 class="flank text-3xl font-bold tracking-tight">
         <span style="display:inline-flex;align-items:center;gap:.4rem;flex-wrap:wrap;justify-content:center"><span class="wave-text">Analyze any</span> <span style="display:inline-flex;align-items:center;gap:.3rem;white-space:nowrap"><svg width="28" height="20" viewBox="0 0 28 20" aria-hidden="true" style="flex-shrink:0"><rect width="28" height="20" rx="5" fill="#FF0000"/><path d="M11.5 6l6.5 4-6.5 4z" fill="#fff"/></svg><span style="color:var(--text)">YouTube</span></span> <span class="wave-text">topic</span></span>
       </h1>
-      <p class="mt-2 muted">Generate keywords from a topic, tune the filters, and launch a live trend scan.</p>
+      <p class="tagline mt-3">Close enough to see <span class="wave-text" style="font-weight:600">what is accelerating</span>. Wide enough to see <span class="wave-text" style="font-weight:600">why</span>.</p>
       <div class="steps">
         <span class="step" tabindex="0"><span class="step-num">1</span>Pick a topic<span class="tip-body">Type anything you want to research — a game, a celebrity, a niche.</span></span>
         <span class="step-arrow">→</span>
