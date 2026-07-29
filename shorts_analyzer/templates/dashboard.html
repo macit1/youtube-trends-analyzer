@@ -50,8 +50,10 @@
     tbody tr:last-child td{border-bottom:none}
     tbody tr{transition:background .12s}
     tbody tr:hover{background:var(--surface-2)}
-    .bar-track{height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden}
-    .bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent-2),var(--accent))}
+    .word-cloud{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;column-gap:1.15rem;row-gap:.4rem;padding:.4rem .25rem;line-height:1.3}
+    .cloud-word{white-space:nowrap;cursor:default;transition:transform .15s}
+    .cloud-word:hover{transform:scale(1.07)}
+    .cloud-count{font-size:.6em;color:var(--muted);font-weight:500;margin-left:3px}
     .desc-toggle{background:none;border:none;cursor:pointer;color:var(--muted);padding:0;margin-right:.35rem;display:inline-flex;vertical-align:middle;transition:transform .15s,color .15s}
     .desc-toggle:hover{color:var(--accent)}
     .desc-toggle.open{transform:rotate(90deg);color:var(--accent)}
@@ -120,13 +122,9 @@
       <h2 class="text-base font-semibold">{% if analysis.mode == 'phrases' %}Trending phrases{% else %}Top words in titles{% endif %}</h2>
       <p class="mb-5 mt-1 text-xs muted">Most repeated {% if analysis.mode == 'phrases' %}phrases{% else %}terms{% endif %} across the scraped video titles (your search words and common stop-words excluded).</p>
 
-      <div class="space-y-2.5">
+      <div class="word-cloud" id="wordCloud">
         {% for w in analysis.words %}
-        <div class="flex items-center gap-3">
-          <span class="w-44 shrink-0 truncate text-right mono text-sm" title="{{ w.word }}">{{ w.word }}</span>
-          <div class="bar-track flex-1"><div class="bar-fill" style="width:{{ w.pct }}%"></div></div>
-          <span class="w-10 shrink-0 text-right mono text-sm muted">{{ w.count }}</span>
-        </div>
+        <span class="cloud-word" style="font-size:calc(.8rem + {{ w.pct }} * .022rem);font-weight:{{ 700 if w.pct > 60 else 600 }}" title="{{ w.count }}× in titles"><span {% if w.pct > 70 %}class="wave-text"{% else %}style="opacity:{{ (0.5 + w.pct / 200) | round(2) }}"{% endif %}>{{ w.word }}</span><sup class="cloud-count">{{ w.count }}</sup></span>
         {% endfor %}
       </div>
 
@@ -224,6 +222,18 @@
       var isLight = document.documentElement.classList.toggle('light');
       localStorage.setItem('theme', isLight ? 'light' : 'dark');
     });
+
+    // Shuffle the word cloud so sizes are interspersed instead of reading as a
+    // sorted list (classic tag-cloud look). New arrangement on every load.
+    var cloud = document.getElementById('wordCloud');
+    if (cloud) {
+      var items = Array.from(cloud.children);
+      for (var i = items.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        cloud.insertBefore(items[j], items[i].nextSibling);
+        var tmp = items[i]; items[i] = items[j]; items[j] = tmp;
+      }
+    }
 
     // Expand/collapse a video's description row.
     document.querySelectorAll('.desc-toggle').forEach(function (btn) {

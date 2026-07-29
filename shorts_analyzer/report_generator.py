@@ -52,7 +52,7 @@ _MEDIA_NOISE = frozenset(
 )
 
 
-def analyze_words(df: pd.DataFrame, top_n: int = 10, top_tags: int = 8) -> dict:
+def analyze_words(df: pd.DataFrame, top_n: int = 20, top_tags: int = 8) -> dict:
     """Trend panel data: repeated 2-word phrases + clean single words + hashtags.
 
     Single-word frequency over descriptions is noisy (lyric fragments, spam,
@@ -60,7 +60,7 @@ def analyze_words(df: pd.DataFrame, top_n: int = 10, top_tags: int = 8) -> dict:
     2-word phrases ("all goals", "transfer news") lead the list because they read
     like trends; remaining slots are filled with the top single words that aren't
     already part of a shown phrase. Hashtags (deliberate tags) come from titles +
-    descriptions and are shown separately. ``pct`` drives the bar widths.
+    descriptions and are shown separately. ``pct`` drives the word-cloud font sizes.
 
     Filtered out: stopwords, the searched topic's own words, pure numbers (except
     4-digit years), and <3-char noise.
