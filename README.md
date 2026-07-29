@@ -38,7 +38,7 @@ Works for any subject — sports, music, gaming, cooking, anything.
 ### 1. Install dependencies
 
 ```bash
-pip install -r shorts_analyzer/requirements.txt
+pip install -r requirements.txt
 ```
 
 (Requires Python 3.10+.)
@@ -104,16 +104,22 @@ Thresholds live in `shorts_analyzer/config.py`.
 ## 🗂️ Project layout
 
 ```text
-shorts_analyzer/
-├── app.py              # Flask routes: control panel + dashboard
-├── main.py             # CLI entry point (renders static dashboard.html)
-├── config.py           # Keywords, thresholds, .env loader, API settings
-├── analyzer_engine.py  # Hybrid search + scoring pipeline (API ⇄ yt-dlp)
-├── youtube_api.py      # YouTube Data API v3 client (stdlib only)
-├── report_generator.py # DataFrame → template context + word analysis
-└── templates/
-    ├── index.html      # Topic control panel
-    └── dashboard.html  # Leaderboard + trend-word analysis
+.
+├── .env.example        # Environment variable template
+├── .gitignore          # Git ignore file
+├── Procfile            # Deployment configuration (gunicorn)
+├── README.md           # Project documentation
+├── requirements.txt    # Project dependencies
+└── shorts_analyzer/    # Main application package
+    ├── app.py              # Flask web server (control panel + dashboard)
+    ├── main.py             # CLI entry point (renders static dashboard.html)
+    ├── config.py           # Configuration, thresholds, and .env loader
+    ├── analyzer_engine.py  # Data ingestion and metric scoring pipeline
+    ├── youtube_api.py      # YouTube Data API v3 client
+    ├── report_generator.py # Data processor and report compiler
+    └── templates/
+        ├── index.html      # Keyword control panel UI
+        └── dashboard.html  # Analytical leaderboard UI
 ```
 
 ---
